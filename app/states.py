@@ -1,3 +1,4 @@
+
 from aiogram.fsm.state import State, StatesGroup
 
 class Steps(StatesGroup):
@@ -29,3 +30,5 @@ class Steps(StatesGroup):
     profiled_timber_row_height = State()
     planed_timber_width = State()
     planed_timber_height = State()
+    roof_overhangs = State()
+    roof_area = State()

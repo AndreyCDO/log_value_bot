@@ -1,3 +1,4 @@
+
 import asyncio
 from aiogram import Router, F, Bot
 from aiogram.types import Message, CallbackQuery
@@ -6,7 +7,7 @@ from aiogram.fsm.context import FSMContext
 
 import app.keyboards as kb
 from app.states import Steps
-from app.calculation import output_of_values, print_final_calc
+from app.calc.finalcalc import output_of_values, print_final_calc
 
 from app.messeges import startmessage, widthmes, roomsmes
 
@@ -280,7 +281,7 @@ async def step_roof_type(callback: CallbackQuery, state: FSMContext):
     await callback.answer()
 
 
-# Запись угла кровли и запрос типа фронтонов (если второй этаж мансардного типа, то сразу спрашиваем про фундамент)     
+# Запись угла кровли и запрос длины свесов кровли    
 @user.message(Steps.roof_angle)
 async def step_roof_angle(message: Message, state: FSMContext):
     try:
@@ -292,31 +293,61 @@ async def step_roof_angle(message: Message, state: FSMContext):
     if 1 <= roof_angle <= 60:
         await state.update_data(roof_angle=roof_angle)
 
-        # Получаем данные о втором этаже
-        data = await state.get_data()
-        second_floor = data.get("second_floor_exists")
-        roof_type = data.get("roof_type")
-
-        if second_floor == "Второй этаж мансардного типа" or roof_type == "Вальмовая":
-            # Пропускаем вопрос про фронтоны, сразу спрашиваем про фундамент
-            await message.answer('Какой планируется фундамент?', reply_markup=kb.foundation_type_kb)
-            await state.set_state(Steps.foundation_type)
-        else:
-            # Обычный вопрос про фронтоны
-            await message.answer('Фронтоны будут из того же материал что и сруб?', reply_markup=kb.fronton_type_kb)
+        await state.set_state(Steps.roof_overhangs)
+        await message.answer('Введите длину свесов кровли от 0 до 1500мм:')
     else:
         await message.answer('Введите корректное значение от 1 до 60:')
+        
+        
+# Запись свесов кровли и запрос типа фронтонов (если второй этаж мансардный — сразу фундамент)
+@user.message(Steps.roof_overhangs)
+async def step_roof_overhangs(message: Message, state: FSMContext):
+    try:
+        overhangs = int(message.text)
+    except ValueError:
+        await message.answer("Введите длину свесов в миллиметрах числом:")
+        return
 
+    # Проверка корректного диапазона
+    if not (0 <= overhangs <= 1500):
+        await message.answer("Длина свесов должна быть от 0 до 1500мм:")
+        return
+
+    await state.update_data(roof_overhangs=overhangs)
+
+    # Получаем данные о втором этаже и типе кровли
+    data = await state.get_data()
+    second_floor = data.get("second_floor_exists")
+    roof_type = data.get("roof_type")
+
+    # Если мансарда или вальмовая кровля → сразу к фундаменту
+    if second_floor == "Второй этаж мансардного типа" or roof_type == "Вальмовая":
+        await state.set_state(Steps.foundation_type)
+        await message.answer("Какой планируется фундамент?", reply_markup=kb.foundation_type_kb)
+        return
+
+    # Иначе спрашиваем фронтоны
+    await message.answer(
+        "Фронтоны будут из того же материала, что и сруб?",
+        reply_markup=kb.fronton_type_kb
+    )
+    await state.set_state(Steps.fronton_type)
         
         
-# Запись типа фронтонов и типа фундамента        
-@user.callback_query(F.data.in_({'Фронтоны полноценные',
-                                'Фронтоны зашиваются доской'
-    }))
+# Запись типа фронтонов и запрос типа фундамента        
+@user.callback_query(F.data.in_({
+    'Фронтоны полноценные',
+    'Фронтоны зашиваются доской'
+}))
 async def step_fronton_type(callback: CallbackQuery, state: FSMContext):
-    await state.update_data(fronton_type = callback.data)
-    
-    await callback.message.answer('Какой планируется фундамент?', reply_markup=kb.foundation_type_kb)
+    await state.update_data(fronton_type=callback.data)
+
+    await state.set_state(Steps.foundation_type)
+    await callback.message.answer(
+        'Какой планируется фундамент?', 
+        reply_markup=kb.foundation_type_kb
+    )
+
     await callback.answer()
     
 

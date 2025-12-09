@@ -4,110 +4,53 @@ from aiogram.fsm.context import FSMContext
 import app.keyboards as kb
 import math
 
-# Вывод всех введённых параметров сруба
-async def output_of_values(message: Message, state: FSMContext) -> None:
-    
-    # Получаем все данные из FSM
-    data: dict = await state.get_data()
-
-    # Словарь ключ FSM -> "Читаемое имя"
-    fields = [
-        ("width", "Ширина сруба, мм"),
-        ("length", "Длина сруба, мм"),
-        ("terrace_exists", "Наличие террасы"),
-        ("terrace_width", "Ширина террасы, мм"),
-        ("terrace_length", "Длина террасы, мм"),
-        ("terrace_railings", "Перила террасы"),
-        ("first_floor_rooms", "Кол-во помещений 1го этажа"),
-        ("first_floor_height", "Высота потолков 1го этажа, мм"),
-        ("first_floor_windows", "Окна первого этажа"),
-        ("second_floor_exists", "Наличие 2го этажа"),
-        ("second_floor_full_height", "Высота стен 2го этажа, мм"),
-        ("second_floor_attic_height", "Высота аттиковой стены, мм"),
-        ("second_floor_windows", "Окна второго этажа"),
-        ("second_floor_rooms", "Кол-во помещений 2го этажа"),
-        ("balcony_exists", "Наличие балкона во всю ширину террасы"),
-        ("roof_type", "Тип кровли"),
-        ("roof_angle", "Угол кровли в градусах"),
-        ("fronton_type", "Тип фронтонов"),
-        ("foundation_type", "Тип фундамента"),
-        ("house_material", "Материал сруба"),
-        ("log_diametr", "Диаметр бревна, мм"),
-        ("profiled_timber_width", "Ширина профилированного бруса, мм"),
-        ("profiled_timber_height", "Габаритная высота бруса, мм"),
-        ("profiled_timber_row_height", "Рабочая высота бруса, мм"),
-        ("planed_timber_width", "Ширина строганного бруса, мм"),
-        ("planed_timber_height", "Высота строганного бруса, мм"),
-    ]
-
-    def pretty(value: Any) -> str:
-        if value is None or value == "":
-            return None  # Если значение пустое, не выводим строку
-        if isinstance(value, bool):
-            return "Да" if value else "Нет"
-        return str(value)
-
-    lines = []
-    for key, label in fields:
-        value = pretty(data.get(key))
-        if value is not None:
-            # HTML: название жирным, значение обычным
-            lines.append(f"{label}: <b>{value}</b>")
-
-    if lines:
-        text = "<b>Введённые значения:</b>\n\n" + "\n".join(lines)
-        await message.answer(text, parse_mode="HTML", reply_markup=kb.calculation_or_back_kb)
-    else:
-        await message.answer("Нет введённых данных.", reply_markup=kb.calculation_or_back_kb)
-
-
 #---------------------------------------------------
 # Временная функция для печати промежуточных расчётов
 #---------------------------------------------------
 
-async def print_interim_calc(message: Message, state: FSMContext):
-    vypuski_value = await vypuski_calc(state)
-    width_with_vypuski, length_with_vypuski = await add_vypuski_to_width_length(state)
-    koef1, koef2 = await calculate_room_coefs(state)
-    terrace_koef = await terrace_coef(state)
-    terrace_wall_area, terrace_wall_volume = await calculate_terrace_wall_area(state, terrace_koef), 2
-    first_floor_area, first_floor_volume = await calculate_first_floor_wall_volume(
-        state,
-        length_with_vypuski,
-        width_with_vypuski,
-        terrace_wall_area,
-        koef1
-    )
-    # Расчёты по 2му этажу:
-    balkony_wall_area = await calculate_balkon_wall_area(state, terrace_wall_area)
-    wall_length2 = await calculate_wall_length2(state, width_with_vypuski, length_with_vypuski, koef2)
-    konek_height = await calculate_konek_height(state)
-    wall_area2_raw = await calculate_wall_area2_raw(state, wall_length2, konek_height)
-    doors_area2, win_area2 = await calculate_openings_area2(state)
-    wall_area2 = await calculate_wall_area2(wall_area2_raw, balkony_wall_area, doors_area2, win_area2)
-    wall_volume2 = await calculate_wall_volume2(state, wall_area2)
-    fronton_num = await calculate_fronton_num(state)
-    fronton_volume = await calculate_fronton_volume(state, width_with_vypuski, konek_height, fronton_num)
-    total_volume = await total_volume_calculate(first_floor_volume, wall_volume2, fronton_volume)
+# async def print_interim_calc(message: Message, state: FSMContext):
+#     vypuski_value = await vypuski_calc(state)
+#     width_with_vypuski, length_with_vypuski = await add_vypuski_to_width_length(state)
+#     koef1, koef2 = await calculate_room_coefs(state)
+#     terrace_koef = await terrace_coef(state)
+#     terrace_wall_area, terrace_wall_volume = await calculate_terrace_wall_area(state, terrace_koef), 2
+#     first_floor_area, first_floor_volume = await calculate_first_floor_wall_volume(
+#         state,
+#         length_with_vypuski,
+#         width_with_vypuski,
+#         terrace_wall_area,
+#         koef1
+#     )
+#     # Расчёты по 2му этажу:
+#     balkony_wall_area = await calculate_balkon_wall_area(state, terrace_wall_area)
+#     wall_length2 = await calculate_wall_length2(state, width_with_vypuski, length_with_vypuski, koef2)
+#     konek_height = await calculate_konek_height(state)
+#     wall_area2_raw = await calculate_wall_area2_raw(state, wall_length2, konek_height)
+#     doors_area2, win_area2 = await calculate_openings_area2(state)
+#     wall_area2 = await calculate_wall_area2(wall_area2_raw, balkony_wall_area, doors_area2, win_area2)
+#     wall_volume2 = await calculate_wall_volume2(state, wall_area2)
+#     fronton_num = await calculate_fronton_num(state)
+#     fronton_volume = await calculate_fronton_volume(state, width_with_vypuski, konek_height, fronton_num)
+#     total_volume = await total_volume_calculate(first_floor_volume, wall_volume2, fronton_volume)
 
 
-    await message.answer(f"""Длина выпусков: {vypuski_value} мм
-Длина сруба с выпусками: {length_with_vypuski} мм
-Ширина сруба с выпусками: {width_with_vypuski} мм
-Коэффициент 1го этажа: {koef1}
-Коэффициент 2го этажа: {koef2}
-Коэффициент стен террасы: {terrace_koef}
-Площадь стен террасы: {terrace_wall_area} м.кв.
-Площадь стен 1го этажа: {first_floor_area} м.кв.
-Объём стен 1го этажа: {first_floor_volume} м.куб.
-Площадь стен балкона: {balkony_wall_area} м.кв.
-Длина стен 2го этажа: {wall_length2} м.п.
-Высота конька: {konek_height} мм
-Плоощадь стен 2го этажа {wall_area2} м.кв.
-Объём стен 2го этажа: {wall_volume2} м.куб.
-Количество фронтонов: {fronton_num}
-Объём фронтонов: {fronton_volume} м.куб.
-Общий объём материала на сруб: {total_volume} м.куб.""")
+#     await message.answer(f"""Длина выпусков: {vypuski_value} мм
+# Длина сруба с выпусками: {length_with_vypuski} мм
+# Ширина сруба с выпусками: {width_with_vypuski} мм
+# Коэффициент 1го этажа: {koef1}
+# Коэффициент 2го этажа: {koef2}
+# Коэффициент стен террасы: {terrace_koef}
+# Площадь стен террасы: {terrace_wall_area} м.кв.
+# Площадь стен 1го этажа: {first_floor_area} м.кв.
+# Объём стен 1го этажа: {first_floor_volume} м.куб.
+# Площадь стен балкона: {balkony_wall_area} м.кв.
+# Длина стен 2го этажа: {wall_length2} м.п.
+# Высота конька: {konek_height} мм
+# Плоощадь стен 2го этажа {wall_area2} м.кв.
+# Объём стен 2го этажа: {wall_volume2} м.куб.
+# Количество фронтонов: {fronton_num}
+# Объём фронтонов: {fronton_volume} м.куб.
+# Общий объём материала на сруб: {total_volume} м.куб.""")
 
 #---------------------------------------------------
 # Расчёт кубатуры сруба
@@ -521,64 +464,5 @@ async def total_volume_calculate (first_floor_volume, wall_volume2, fronton_volu
     return round(total_volume, 2)
 
 
-#--------------------------------------------------------
-# Функция финальных расчётов и вывода их на печать
-#--------------------------------------------------------
-async def print_final_calc(callback: CallbackQuery, state: FSMContext):
-    data = await state.get_data()
-    width_with_vypuski, length_with_vypuski = await add_vypuski_to_width_length(state)
-    koef1, koef2 = await calculate_room_coefs(state)
-    terrace_koef = await terrace_coef(state)
-    terrace_wall_area, terrace_wall_volume = await calculate_terrace_wall_area(state, terrace_koef), 2
-    first_floor_area, first_floor_volume = await calculate_first_floor_wall_volume(
-        state,
-        length_with_vypuski,
-        width_with_vypuski,
-        terrace_wall_area,
-        koef1
-    )
-    
-    # Расчёт объёма фронтонов
-    konek_height = await calculate_konek_height(state)
-    fronton_num = await calculate_fronton_num(state)
-    fronton_volume = await calculate_fronton_volume(state, width_with_vypuski, konek_height, fronton_num)
-    
-    # Проверяем, существует ли второй этаж
-    if data.get('second_floor_exists') is None or data.get('second_floor_exists') == "Второго этажа нет":
-
-        # Если второго этажа нет — все переменные второго этажа = 0
-        balkony_wall_area = 0
-        wall_length2 = 0
-        konek_height = 0
-        wall_area2_raw = 0
-        doors_area2 = 0
-        win_area2 = 0
-        wall_area2 = 0
-        wall_volume2 = 0
-        
-    else:
-        # Расчёты по 2му этажу
-        balkony_wall_area = await calculate_balkon_wall_area(state, terrace_wall_area)
-        wall_length2 = await calculate_wall_length2(state, width_with_vypuski, length_with_vypuski, koef2)
-        wall_area2_raw = await calculate_wall_area2_raw(state, wall_length2, konek_height)
-        doors_area2, win_area2 = await calculate_openings_area2(state)
-        wall_area2 = await calculate_wall_area2(wall_area2_raw, balkony_wall_area, doors_area2, win_area2)
-        wall_volume2 = await calculate_wall_volume2(state, wall_area2)
-    
-    # Итоговая сумма
-    total_volume = await total_volume_calculate(first_floor_volume, wall_volume2, fronton_volume)
-
-    await callback.message.answer(
-        f"""Объём стен 1го этажа: <b>{first_floor_volume}</b> м³
-Объём стен 2го этажа и фронтонов: <b>{wall_volume2 + fronton_volume}</b> м³
-Общий объём материала на сруб: <b>{total_volume}</b> м³
-
-Значения расчитаны с учётом усреднённых коэффициентов. 
-Они дают лишь примерную оценку объёма материала на сруб.
-Для точного расчёта, необходимо сделать проект.
-Обратитесь к <a href="https://t.me/AndreyCDO">проектировщику срубов</a>""",
-        parse_mode="HTML",
-        reply_markup=kb.finalbutton_kb
-    )
 
 
